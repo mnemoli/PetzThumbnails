@@ -19,7 +19,10 @@ namespace PetzThumbnails
             {
                 mem.Write(headerBytes, 0, headerBytes.Length);
                 SelectedItemStream.CopyTo(mem);
-                return new Bitmap(mem);
+                var bitmap = new Bitmap(mem);
+                var transcolor = bitmap.Palette.Entries[253];
+                bitmap.MakeTransparent(transcolor);
+                return bitmap;
 
             }
         }

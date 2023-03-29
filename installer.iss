@@ -3,9 +3,9 @@
 
 #define MyAppName "Petz Thumbnails Extension"
 #define MyAppVersion "1.0"
-#define MyAppPublisher "-"
+#define MyAppPublisher "Ratshack"
 #define MyAppURL "-"
-#define MyAppExeName "PetzThumbnailsInstaller.exe"
+#define MyAppExeName "-"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -26,14 +26,13 @@ OutputBaseFilename=PetzThumbnailsInstaller
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+SetupLogging=yes
 
 [Run]
-Filename: "{tmp}\gacutil.exe"; Parameters: "-i ""{app}\PetzThumbnails.dll"""
-Filename: "{tmp}\ServerRegistrationManager.exe"; Parameters: "install ""{app}\PetzThumbnails.dll"""
+Filename: "{app}\tools\ServerRegistrationManager.exe"; Parameters: "install ""{app}\PetzThumbnails.dll"" -codebase"
 
 [UninstallRun]
-Filename: "{tmp}\ServerRegistrationManager.exe"; Parameters: "uninstall ""{app}\PetzThumbnails.dll"""
-Filename: "{tmp}\gacutil.exe"; Parameters: "-u ""{app}\PetzThumbnails.dll"""
+Filename: "{app}\tools\ServerRegistrationManager.exe"; Parameters: "uninstall ""{app}\PetzThumbnails.dll"""
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
@@ -43,8 +42,15 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "PetzThumbnails.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "SharpShell.dll"; DestDir: "{app}"; Flags: deleteafterinstall ignoreversion
-Source: "gacutil.exe"; DestDir: "{tmp}"; Flags: ignoreversion  
-Source: "ServerRegistrationManager\*"; DestDir: "{tmp}"; Flags: ignoreversion 
+Source: "SharpShell.dll"; DestDir: "{app}"; Flags: ignoreversion 
+Source: "ServerRegistrationManager\*"; DestDir: "{app}\tools"; Flags: ignoreversion 
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
+[Code]
+function InitializeSetup(): Boolean;
+begin
+  Result := IsDotNetInstalled(net48, 0);
+
+  if not Result then
+    SuppressibleMsgBox(FmtMessage(SetupMessage(msgWinVersionTooLowError), ['.NET Framework', '4.8']), mbCriticalError, MB_OK, IDOK);
+end;
