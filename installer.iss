@@ -3,9 +3,9 @@
 
 #define MyAppName "Petz Thumbnails Extension"
 #define MyAppVersion "1.0"
-#define MyAppPublisher "Ratshack"
+#define MyAppPublisher "-"
 #define MyAppURL "-"
-#define MyAppExeName "-"
+#define MyAppExeName "PetzThumbnailsInstaller.exe"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
