@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Petz Thumbnails Extension"
-#define MyAppVersion "1.0"
+#define MyAppVersion "5.0"
 #define MyAppPublisher "-"
 #define MyAppURL "-"
 #define MyAppExeName "PetzThumbnailsInstaller.exe"
@@ -41,8 +41,7 @@ Type: filesandordirs; Name: "{app}"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "PetzThumbnails.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "SharpShell.dll"; DestDir: "{app}"; Flags: ignoreversion 
+Source: "*.dll"; DestDir: "{app}"; Flags: ignoreversion 
 Source: "ServerRegistrationManager\*"; DestDir: "{app}\tools"; Flags: ignoreversion 
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
