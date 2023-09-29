@@ -12,6 +12,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Windows.Forms.VisualStyles;
+using SharpShell.Diagnostics;
 using static System.Drawing.Imaging.ImageLockMode;
 using static System.Drawing.Imaging.PixelFormat;
 
@@ -24,16 +27,38 @@ namespace PetzThumbnails
         protected override Bitmap GetThumbnailImage(uint width)
         {
             var headerBytes = new byte[] { 0x42, 0x4d, 0xf6, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x04, 0x00, 0x00 };
-            SelectedItemStream.Seek(-13704, SeekOrigin.End);
-            using (var mem = new MemoryStream())
+            var buffer = new byte[13704];
+            // If pet is pregnant, there will be two thumbnails (pet + baby, baby)
+            // If pet is not pregnant, there will only be one
+            // Seek back to where pet + baby thumb would be and attempt to parse
+            // If that fails, get the normal thumb
+            // Alternative would be seeking the pfm marker but this is hard with a stream
+            SelectedItemStream.Seek(-27412, SeekOrigin.End);
+            SelectedItemStream.Read(buffer, 0, 13704);
+            try
             {
-                mem.Write(headerBytes, 0, headerBytes.Length);
-                SelectedItemStream.CopyTo(mem);
-                var bitmap = new Bitmap(mem);
-                var transcolor = bitmap.Palette.Entries[253];
-                bitmap.MakeTransparent(transcolor);
-                return bitmap;
-
+                using (var mem = new MemoryStream())
+                {
+                    mem.Write(headerBytes, 0, headerBytes.Length);
+                    mem.Write(buffer, 0, 13704);
+                    var bitmap = new Bitmap(mem);
+                    var transcolor = bitmap.Palette.Entries[253];
+                    bitmap.MakeTransparent(transcolor);
+                    return bitmap;
+                }
+            }
+            catch (Exception e)
+            {
+                SelectedItemStream.Seek(-13704, SeekOrigin.End);
+                using (var mem = new MemoryStream())
+                {
+                    mem.Write(headerBytes, 0, headerBytes.Length);
+                    SelectedItemStream.CopyTo(mem);
+                    var bitmap = new Bitmap(mem);
+                    var transcolor = bitmap.Palette.Entries[253];
+                    bitmap.MakeTransparent(transcolor);
+                    return bitmap;
+                }
             }
         }
     }
@@ -85,6 +110,37 @@ namespace PetzThumbnails
 
             return bitmap;
         }
+        
+        public static Bitmap GetBreedThumbnailImage(Stream SelectedItemStream)
+        {
+            byte[] data = new byte[SelectedItemStream.Length];
+            SelectedItemStream.Read(data, 0, data.Length);
+            var asm = AsmResolver.PE.PEImage.FromBytes(data);
+            var breedStringTable = asm.Resources.GetDirectory(ResourceType.String)
+                .GetDirectory(63).GetData(1033).Contents.WriteIntoArray();
+            var binaryReader = new BinaryReader  (new MemoryStream(breedStringTable.SkipWhile(x => x == 0x0).ToArray()), Encoding.Unicode);
+            var nameLength = binaryReader.ReadInt16();
+            var name = new string(binaryReader.ReadChars(nameLength)).ToUpper();
+            binaryReader.Close();
+            var bmpResourceDir = (IResourceDirectory)asm.Resources.Entries.Where(x => x.Name == "BMP").First();
+            bmpResourceDir = (IResourceDirectory)bmpResourceDir.Entries.Where(x => x.Name == name).First();
+            var bmpResource = (IResourceData)bmpResourceDir.Entries.First();
+            var bmp = bmpResource.Contents.WriteIntoArray();
+            using (var mem = new MemoryStream())
+            {
+                mem.Write(bmp, 0, bmp.Length);
+                var bitmap = new Bitmap(mem);
+                try
+                {
+                    bitmap.MakeTransparent(bitmap.Palette.Entries[253]);
+                }
+                catch (IndexOutOfRangeException e)
+                {
+                    // ok - wrong palette - don't bother making transparent
+                }
+                return bitmap;
+            }
+        }
     }
 
 
@@ -115,26 +171,21 @@ namespace PetzThumbnails
 
     [ComVisible(true)]
     [COMServerAssociation(AssociationType.FileExtension, ".dog")]
+    public class DogThumbnailHandler : SharpThumbnailHandler
+    {
+        protected override Bitmap GetThumbnailImage(uint width)
+        { 
+            return Helper.GetBreedThumbnailImage(SelectedItemStream);   
+        }
+    }
+    
+    [ComVisible(true)]
     [COMServerAssociation(AssociationType.FileExtension, ".cat")]
-    public class BreedThumbnailHandler : SharpThumbnailHandler
+    public class CatThumbnailHandler : SharpThumbnailHandler
     {
         protected override Bitmap GetThumbnailImage(uint width)
         {
-            var headerBytes = new byte[] { 0x42, 0x4d, 0xf6, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x04, 0x00, 0x00 };
-            byte[] data = new byte[SelectedItemStream.Length];
-            SelectedItemStream.Read(data, 0, data.Length);
-            var asm = AsmResolver.PE.PEImage.FromBytes(data);
-            var bmpResourceDir = (IResourceDirectory)asm.Resources.Entries.Where(x => x.Name == "BMP").First();
-            bmpResourceDir = (IResourceDirectory)bmpResourceDir.Entries.First();
-            var bmpResource = (IResourceData)bmpResourceDir.Entries.First();
-            var bmp = bmpResource.Contents.WriteIntoArray();
-            using (var mem = new MemoryStream())
-            {
-                mem.Write(bmp, 0, bmp.Length);
-                var bitmap = new Bitmap(mem);
-                bitmap.MakeTransparent(bitmap.Palette.Entries[253]);
-                return bitmap;
-            }
+            return Helper.GetBreedThumbnailImage(SelectedItemStream);
         }
     }
 }
