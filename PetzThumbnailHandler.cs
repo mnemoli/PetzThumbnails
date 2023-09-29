@@ -3,18 +3,14 @@ using AsmResolver.IO;
 using AsmResolver.PE.Win32Resources;
 using Kaitai;
 using SharpShell.Attributes;
-using SharpShell.Helpers;
 using SharpShell.SharpThumbnailHandler;
 using System;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows.Forms.VisualStyles;
-using SharpShell.Diagnostics;
 using static System.Drawing.Imaging.ImageLockMode;
 using static System.Drawing.Imaging.PixelFormat;
 
