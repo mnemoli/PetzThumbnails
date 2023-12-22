@@ -56,6 +56,10 @@ namespace PetzThumbnails
                     return bitmap;
                 }
             }
+            finally
+            {
+                SelectedItemStream.Close();
+            }
         }
     }
 
@@ -111,13 +115,16 @@ namespace PetzThumbnails
         {
             byte[] data = new byte[SelectedItemStream.Length];
             SelectedItemStream.Read(data, 0, data.Length);
+            SelectedItemStream.Close();
             var asm = AsmResolver.PE.PEImage.FromBytes(data);
             var breedStringTable = asm.Resources.GetDirectory(ResourceType.String)
                 .GetDirectory(63).GetData(1033).Contents.WriteIntoArray();
-            var binaryReader = new BinaryReader  (new MemoryStream(breedStringTable.SkipWhile(x => x == 0x0).ToArray()), Encoding.Unicode);
-            var nameLength = binaryReader.ReadInt16();
-            var name = new string(binaryReader.ReadChars(nameLength)).ToUpper();
-            binaryReader.Close();
+            string name;
+            using (var binaryReader = new BinaryReader(new MemoryStream(breedStringTable.SkipWhile(x => x == 0x0).ToArray()), Encoding.Unicode))
+            {
+                    var nameLength = binaryReader.ReadInt16();
+                    name = new string(binaryReader.ReadChars(nameLength)).ToUpper();
+            }
             var bmpResourceDir = (IResourceDirectory)asm.Resources.Entries.Where(x => x.Name == "BMP").First();
             bmpResourceDir = (IResourceDirectory)bmpResourceDir.Entries.Where(x => x.Name == name).First();
             var bmpResource = (IResourceData)bmpResourceDir.Entries.First();
@@ -148,6 +155,7 @@ namespace PetzThumbnails
         {
             byte[] data = new byte[SelectedItemStream.Length];
             SelectedItemStream.Read(data, 0, data.Length);
+            SelectedItemStream.Close();
             return Helper.GetThumbnail(data, "toy");
         }
 
@@ -161,6 +169,7 @@ namespace PetzThumbnails
         {
             byte[] data = new byte[SelectedItemStream.Length];
             SelectedItemStream.Read(data, 0, data.Length);
+            SelectedItemStream.Close();
             return Helper.GetThumbnail(data, "clo");
         }
     }
