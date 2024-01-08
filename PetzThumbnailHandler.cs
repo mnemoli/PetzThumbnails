@@ -6,16 +6,19 @@ using SharpShell.Attributes;
 using SharpShell.SharpThumbnailHandler;
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using AsmResolver.PE;
 using static System.Drawing.Imaging.ImageLockMode;
 using static System.Drawing.Imaging.PixelFormat;
 
 namespace PetzThumbnails
 {
+
     [ComVisible(true)]
     [COMServerAssociation(AssociationType.FileExtension, ".pet")]
     public class PetzThumbnailHandler : SharpThumbnailHandler
@@ -40,7 +43,7 @@ namespace PetzThumbnails
                     var bitmap = new Bitmap(mem);
                     var transcolor = bitmap.Palette.Entries[253];
                     bitmap.MakeTransparent(transcolor);
-                    return bitmap;
+                    return width > bitmap.Width ? Helper.ResizeBitmap(bitmap) : bitmap;
                 }
             }
             catch (Exception e)
@@ -53,7 +56,7 @@ namespace PetzThumbnails
                     var bitmap = new Bitmap(mem);
                     var transcolor = bitmap.Palette.Entries[253];
                     bitmap.MakeTransparent(transcolor);
-                    return bitmap;
+                    return width > bitmap.Width ? Helper.ResizeBitmap(bitmap) : bitmap;
                 }
             }
             finally
@@ -66,7 +69,7 @@ namespace PetzThumbnails
     public class Helper
     {
         public static readonly Bitmap palette = new Bitmap(Assembly.GetExecutingAssembly().GetManifestResourceStream("PetzThumbnails.PALETTE.bmp"));
-        public static Bitmap GetThumbnail(byte[] bytes, string type)
+        public static Bitmap GetThumbnail(byte[] bytes, string type, uint width)
         {
             var flhname = "restinga";
             if (type == "clo")
@@ -108,10 +111,10 @@ namespace PetzThumbnails
             bitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
             bitmap.MakeTransparent(palette.Palette.Entries[253]);
 
-            return bitmap;
+            return width > bitmap.Width ? Helper.ResizeBitmap(bitmap) : bitmap;
         }
-        
-        public static Bitmap GetBreedThumbnailImage(Stream SelectedItemStream)
+
+        public static Bitmap GetBreedThumbnailImage(Stream SelectedItemStream, uint width)
         {
             byte[] data = new byte[SelectedItemStream.Length];
             SelectedItemStream.Read(data, 0, data.Length);
@@ -120,11 +123,14 @@ namespace PetzThumbnails
             var breedStringTable = asm.Resources.GetDirectory(ResourceType.String)
                 .GetDirectory(63).GetData(1033).Contents.WriteIntoArray();
             string name;
-            using (var binaryReader = new BinaryReader(new MemoryStream(breedStringTable.SkipWhile(x => x == 0x0).ToArray()), Encoding.Unicode))
+            using (var binaryReader =
+                   new BinaryReader(new MemoryStream(breedStringTable.SkipWhile(x => x == 0x0).ToArray()),
+                       Encoding.Unicode))
             {
-                    var nameLength = binaryReader.ReadInt16();
-                    name = new string(binaryReader.ReadChars(nameLength)).ToUpper();
+                var nameLength = binaryReader.ReadInt16();
+                name = new string(binaryReader.ReadChars(nameLength)).ToUpper();
             }
+
             var bmpResourceDir = (IResourceDirectory)asm.Resources.Entries.Where(x => x.Name == "BMP").First();
             bmpResourceDir = (IResourceDirectory)bmpResourceDir.Entries.Where(x => x.Name == name).First();
             var bmpResource = (IResourceData)bmpResourceDir.Entries.First();
@@ -141,8 +147,20 @@ namespace PetzThumbnails
                 {
                     // ok - wrong palette - don't bother making transparent
                 }
-                return bitmap;
+                
+                return width > bitmap.Width ? Helper.ResizeBitmap(bitmap) : bitmap;
             }
+        }
+
+        public static Bitmap ResizeBitmap(Bitmap bitmap)
+        {
+            var scaledbitmap = new Bitmap(bitmap.Width * 2, bitmap.Height * 2);
+            using (Graphics g = Graphics.FromImage(scaledbitmap))
+            {
+                g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                g.DrawImage(bitmap, new Rectangle(Point.Empty, scaledbitmap.Size));
+                return scaledbitmap;
+            }    
         }
     }
 
@@ -156,7 +174,7 @@ namespace PetzThumbnails
             byte[] data = new byte[SelectedItemStream.Length];
             SelectedItemStream.Read(data, 0, data.Length);
             SelectedItemStream.Close();
-            return Helper.GetThumbnail(data, "toy");
+            return Helper.GetThumbnail(data, "toy", width);
         }
 
     }
@@ -170,7 +188,7 @@ namespace PetzThumbnails
             byte[] data = new byte[SelectedItemStream.Length];
             SelectedItemStream.Read(data, 0, data.Length);
             SelectedItemStream.Close();
-            return Helper.GetThumbnail(data, "clo");
+            return Helper.GetThumbnail(data, "clo", width);
         }
     }
 
@@ -180,7 +198,7 @@ namespace PetzThumbnails
     {
         protected override Bitmap GetThumbnailImage(uint width)
         { 
-            return Helper.GetBreedThumbnailImage(SelectedItemStream);   
+            return Helper.GetBreedThumbnailImage(SelectedItemStream, width);   
         }
     }
     
@@ -190,7 +208,7 @@ namespace PetzThumbnails
     {
         protected override Bitmap GetThumbnailImage(uint width)
         {
-            return Helper.GetBreedThumbnailImage(SelectedItemStream);
+            return Helper.GetBreedThumbnailImage(SelectedItemStream, width);
         }
     }
 }
