@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Petz Thumbnails Extension"
-#define MyAppVersion "5.3"
+#define MyAppVersion "5.4"
 #define MyAppPublisher "-"
 #define MyAppURL "-"
 #define MyAppExeName "PetzThumbnailsInstaller.exe"
