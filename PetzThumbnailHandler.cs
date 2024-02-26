@@ -79,15 +79,29 @@ namespace PetzThumbnails
                 flhname = "awaya";
             }
             var asm = AsmResolver.PE.PEImage.FromBytes(bytes);
+            
+            // Weird way of doing this, but it seems like there is no way to figure it out from data
+            // Tinker makes you set the palette manually
+            // There's a flh field which seems like it might indicate palette but
+            // it's wrong on Babyz toys which came from Petz (e.g. catz plush)
             var isBabyz = asm.Imports.Any(x => x.Name == "Babyz.exe");
+            
             var resourceTypes = asm.Resources.Entries.Where(x => x.Name == "FLM" || x.Name == "FLH");
-            bool includeaway = type == "clo" || resourceTypes.Count() == 2;
+            // if we only have 1 FLH/FLM set then it's probably a lnz toy with away only
+            // Babyz toys look better always using the away, Petz toys look better the other way round
+            bool includeaway = isBabyz || type == "clo" || resourceTypes.Count() == 2;
             resourceTypes = resourceTypes.SelectMany(x => (x as IResourceDirectory).Entries)
                 .Where(x => !x.Name.ToLower().Contains("away") || includeaway);
             resourceTypes = resourceTypes.SelectMany(x => (x as IResourceDirectory).Entries);
 
-            BinaryStreamReader flh = resourceTypes.Where(x => x.ParentDirectory.ParentDirectory.Name == "FLH").Select(x => (x as IResourceData).CreateReader()).First();
-            BinaryStreamReader flm = resourceTypes.Where(x => x.ParentDirectory.ParentDirectory.Name == "FLM").Select(x => (x as IResourceData).CreateReader()).First();
+            // Prioritise "away" graphics for clothes and Babyz
+            BinaryStreamReader flh = resourceTypes.Where(x => x.ParentDirectory.ParentDirectory.Name == "FLH")
+                .OrderBy(x => (type == "clo" || isBabyz) && x.ParentDirectory.Name.ToLower().Contains("away") ? 0 : 1)
+                .Select(x => (x as IResourceData).CreateReader())
+                .First();
+            BinaryStreamReader flm = resourceTypes.Where(x => x.ParentDirectory.ParentDirectory.Name == "FLM")
+                .OrderBy(x => (type == "clo" || isBabyz) && x.ParentDirectory.Name.ToLower().Contains("away") ? 0 : 1)
+                .Select(x => (x as IResourceData).CreateReader()).First();
 
             var kaitaiflh = new Flh(new KaitaiStream(flh.ReadToEnd()));
             var frame = kaitaiflh.Frames.FirstOrDefault(x => x.Name.ToLower().Contains(flhname) && (x.Flags & 2) != 0);
