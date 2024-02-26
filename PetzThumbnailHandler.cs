@@ -12,7 +12,6 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using AsmResolver.PE;
 using static System.Drawing.Imaging.ImageLockMode;
 using static System.Drawing.Imaging.PixelFormat;
 
@@ -69,6 +68,9 @@ namespace PetzThumbnails
     public class Helper
     {
         public static readonly Bitmap palette = new Bitmap(Assembly.GetExecutingAssembly().GetManifestResourceStream("PetzThumbnails.PALETTE.bmp"));
+
+        public static readonly Bitmap babyzpalette =
+            new Bitmap(Assembly.GetExecutingAssembly().GetManifestResourceStream("PetzThumbnails.BABYZ.bmp"));
         public static Bitmap GetThumbnail(byte[] bytes, string type, uint width)
         {
             var flhname = "restinga";
@@ -77,6 +79,7 @@ namespace PetzThumbnails
                 flhname = "awaya";
             }
             var asm = AsmResolver.PE.PEImage.FromBytes(bytes);
+            var isBabyz = asm.Imports.Any(x => x.Name == "Babyz.exe");
             var resourceTypes = asm.Resources.Entries.Where(x => x.Name == "FLM" || x.Name == "FLH");
             bool includeaway = type == "clo" || resourceTypes.Count() == 2;
             resourceTypes = resourceTypes.SelectMany(x => (x as IResourceDirectory).Entries)
@@ -90,7 +93,8 @@ namespace PetzThumbnails
             var frame = kaitaiflh.Frames.FirstOrDefault(x => x.Name.ToLower().Contains(flhname) && (x.Flags & 2) != 0);
             if (frame == null)
             {
-                frame = kaitaiflh.Frames.First(x => (x.Flags & 2) != 0);
+                frame = kaitaiflh.Frames.FirstOrDefault(x => x.Name.ToLower().Contains("awaya") && (x.Flags & 2) != 0) ??
+                        kaitaiflh.Frames.First(x => (x.Flags & 2) != 0);
             }
 
             var bitmap = new Bitmap(frame.X2 - frame.X1, frame.Y2 - frame.Y1, Format8bppIndexed);
@@ -105,7 +109,7 @@ namespace PetzThumbnails
             flm.RelativeOffset = offset;
             byte[] bmp = flm.ReadSegment((uint)size).ToArray();
             var thelock = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), WriteOnly, Format8bppIndexed);
-            bitmap.Palette = palette.Palette;
+            bitmap.Palette = isBabyz ? babyzpalette.Palette : palette.Palette;
             Marshal.Copy(bmp, 0, thelock.Scan0, bmp.Length);
             bitmap.UnlockBits(thelock);
             bitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
